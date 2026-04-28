@@ -1,2 +1,2 @@
-# swittest-l3-template-kt
-Swittest L3 template Kotlin application
+# switcloud-l3-template-kt
+Switcloud L3 template Kotlin application
