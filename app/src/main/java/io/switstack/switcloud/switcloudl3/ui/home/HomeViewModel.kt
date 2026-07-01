@@ -3,8 +3,6 @@ package io.switstack.switcloud.switcloudl3.ui.home
 import android.os.Looper
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import io.switstack.switcloud.switcloudapi.SwitcloudApi
-import io.switstack.switcloud.switcloudapi.model.PaymentCreateSchema
 import io.switstack.switcloud.switcloudclt.common.SwitcloudClientException
 import io.switstack.switcloud.switcloudclt.data.BipEvent
 import io.switstack.switcloud.switcloudclt.data.InitiationData
@@ -22,6 +20,9 @@ import io.switstack.switcloud.switcloudl3.data.PaymentProcessStatus.Step1Confirm
 import io.switstack.switcloud.switcloudl3.data.PaymentProcessStatus.Step2Confirmation
 import io.switstack.switcloud.switcloudl3.data.PaymentProcessStatus.Step3Confirmation
 import io.switstack.switcloud.switcloudl3.data.UserInfo
+import io.switstack.switcloud.switcloudl3api.SwitcloudL3Api
+import io.switstack.switcloud.switcloudl3api.model.Oauth2GrantType
+import io.switstack.switcloud.switcloudl3api.model.PaymentCreateSchema
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,7 +54,7 @@ class HomeViewModel() : ViewModel(), KoinComponent {
 
     private val switcloudClient: SwitcloudTestClient by inject { parametersOf(Conf.SWITCLOUD_URL) }
 
-    private val switcloudApi: SwitcloudApi by inject { parametersOf(Conf.SWITCLOUD_URL) }
+    private val switcloudL3Api = SwitcloudL3Api(Conf.SWITCLOUD_URL)
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -176,6 +177,17 @@ class HomeViewModel() : ViewModel(), KoinComponent {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 _isConnecting.update { true }
+                switcloudL3Api.auth.token(
+                    Oauth2GrantType.client_credentials,
+                    clientId = Conf.SWITCLOUD_CLIENT_ID,
+                    clientSecret = Conf.SWITCLOUD_CLIENT_SECRET
+                ).let { token ->
+                    switcloudL3Api.updateToken(
+                        token,
+                        BuildConfig.SWITSTACK_CLIENT_ATTESTATION_SECRET
+                    )
+                }
+                // TODO find better solution
                 switcloudClient.authenticateMachine(
                     Conf.SWITCLOUD_CLIENT_ID,
                     Conf.SWITCLOUD_CLIENT_SECRET,
@@ -198,7 +210,7 @@ class HomeViewModel() : ViewModel(), KoinComponent {
             trd = Conf.TRD
         )
 
-        val result = switcloudApi.payment.createPayment(parameter)
+        val result = switcloudL3Api.payment.createPayment(parameter)
 
         return result.id
     }
@@ -210,7 +222,6 @@ class HomeViewModel() : ViewModel(), KoinComponent {
                 switcloudClient.run {
                     initialize()
                     configure(paymentId, null)
-//                loadVCard(vardData, client) // TODO vcard data available?
                     initiate(paymentId).also {
                         _initiateResponse.tryEmit(it)
                     }

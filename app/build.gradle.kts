@@ -122,14 +122,15 @@ dependencies {
     implementation(libs.koin.core)
     implementation(libs.koin.androidx.compose)
 
-    // Switcloud Client
+    // Switcloud deps
     implementation(libs.switcloud.clt)
-
-    // Switcloud Api
-    implementation(libs.switcloud.api)
+    implementation(libs.switcloud.l2)
 
     // TLV parser / builder
     implementation(libs.tlv)
+
+    // JSON serializer (API)
+    implementation(libs.kotlinx.serialization.json)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
