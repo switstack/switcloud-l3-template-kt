@@ -7,10 +7,14 @@ import io.switstack.switcloud.switcloudclt.common.SwitcloudClientException
 import io.switstack.switcloud.switcloudclt.data.BipEvent
 import io.switstack.switcloud.switcloudclt.data.InitiationData
 import io.switstack.switcloud.switcloudclt.data.OutcomeParameterSet
+import io.switstack.switcloud.switcloudclt.data.PinRequestEvent
+import io.switstack.switcloud.switcloudclt.data.Receipt
 import io.switstack.switcloud.switcloudclt.domain.SwitcloudClt
 import io.switstack.switcloud.switcloudclt.domain.SwitcloudTestClient
 import io.switstack.switcloud.switcloudl3.BuildConfig
+import io.switstack.switcloud.switcloudl3.R
 import io.switstack.switcloud.switcloudl3.common.Conf
+import io.switstack.switcloud.switcloudl3.common.Conf.readerParams
 import io.switstack.switcloud.switcloudl3.common.CustomTonesGenerator
 import io.switstack.switcloud.switcloudl3.common.TlvUtils.parseUirdTlv
 import io.switstack.switcloud.switcloudl3.data.PaymentProcessStatus
@@ -20,12 +24,15 @@ import io.switstack.switcloud.switcloudl3.data.PaymentProcessStatus.Step1Confirm
 import io.switstack.switcloud.switcloudl3.data.PaymentProcessStatus.Step2Confirmation
 import io.switstack.switcloud.switcloudl3.data.PaymentProcessStatus.Step3Confirmation
 import io.switstack.switcloud.switcloudl3.data.UserInfo
+import io.switstack.switcloud.switcloudl3.domain.AdvancedPaymentManager
 import io.switstack.switcloud.switcloudl3api.SwitcloudL3Api
 import io.switstack.switcloud.switcloudl3api.model.Oauth2GrantType
 import io.switstack.switcloud.switcloudl3api.model.PaymentCreateSchema
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.merge
@@ -35,6 +42,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
 import timber.log.Timber
+import java.util.Locale
 import java.util.UUID
 
 class HomeViewModel() : ViewModel(), KoinComponent {
@@ -56,6 +64,12 @@ class HomeViewModel() : ViewModel(), KoinComponent {
 
     private val switcloudL3Api = SwitcloudL3Api(Conf.SWITCLOUD_URL)
 
+    val pinRequest: SharedFlow<PinRequestEvent?> = SwitcloudClt.pinRequest
+
+    val pinInput = Channel<String?>(capacity = Channel.BUFFERED)
+
+    val receipt = MutableStateFlow<Map<Int, String>>(mapOf())
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             toneGenerator = CustomTonesGenerator()
@@ -63,7 +77,8 @@ class HomeViewModel() : ViewModel(), KoinComponent {
                 SwitcloudClt.userInfo,
                 _isConnected,
                 _initiateResponse,
-                SwitcloudClt.bipEvent
+                SwitcloudClt.bipEvent,
+                SwitcloudClt.transactionReceipt
             ).collect {
                 when (it) {
                     is BipEvent -> {
@@ -163,6 +178,22 @@ class HomeViewModel() : ViewModel(), KoinComponent {
                             _paymentProcessMessage.update { null }
                         }
                     }
+
+                    is Receipt -> {
+                        Timber.d("HVM receipt received $it")
+                        try {
+                            val receiptMap = mutableMapOf(
+                                R.string.amount to String.format(Locale.ROOT, "%.2f", it.amount.toDouble() / 100),
+                                R.string.ac to it.ac
+                            )
+                            if (it.isSignature) {
+                                receiptMap[R.string.signature] = "_______________________________"
+                            }
+                            receipt.update { receiptMap }
+                        } catch (e: Exception) {
+                            Timber.w("Unable to emit receipt : ${e.message}")
+                        }
+                    }
                 }
             }
         }
@@ -187,11 +218,9 @@ class HomeViewModel() : ViewModel(), KoinComponent {
                         BuildConfig.SWITSTACK_CLIENT_ATTESTATION_SECRET
                     )
                 }
-                // TODO find better solution
                 switcloudClient.authenticateMachine(
                     Conf.SWITCLOUD_CLIENT_ID,
-                    Conf.SWITCLOUD_CLIENT_SECRET,
-                    BuildConfig.SWITSTACK_CLIENT_ATTESTATION_SECRET
+                    Conf.SWITCLOUD_CLIENT_SECRET
                 )
                 _isConnected.update { true }
             } catch (e: SwitcloudClientException) {
@@ -215,17 +244,28 @@ class HomeViewModel() : ViewModel(), KoinComponent {
         return result.id
     }
 
-    fun startPayment() {
+    fun startPaymentBasic() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val paymentId = createPayment()
                 switcloudClient.run {
-                    initialize()
-                    configure(paymentId, null)
-                    initiate(paymentId).also {
-                        _initiateResponse.tryEmit(it)
+                    initialize(readerParams)
+                    configure(paymentId, null).let { sessionData ->
+                        val initiateResponse = initiate(sessionData)
+                        _initiateResponse.emit(initiateResponse.copy()) // copy prevents the value from being erased by the new one
+
+                        if (initiateResponse.outcomeParameterSet?.status == OutcomeParameterSet.Status.ONLINE_REQUEST) {
+                            val completeResponse = complete(
+                                sessionData = sessionData,
+                                authorizationResponse = "",
+                                initiateResponse = initiateResponse
+                            )
+                            _initiateResponse.emit(completeResponse)
+                            emitReceipt(completeResponse)
+                        } else {
+                            emitReceipt(initiateResponse)
+                        }
                     }
-                    complete()
                 }
             } catch (e: Exception) {
                 resetToReady()
@@ -234,5 +274,40 @@ class HomeViewModel() : ViewModel(), KoinComponent {
                 switcloudClient.cleanup()
             }
         }
+    }
+
+    fun startPaymentAdvanced() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val paymentId = createPayment()
+                AdvancedPaymentManager(switcloudClient, pinInput).run {
+                    initialize()
+                    configure(paymentId, null)
+
+                    val initiateResponse = initiate()
+                    _initiateResponse.emit(initiateResponse.copy()) // copy prevents the value from being erased by the new one
+
+                    if (initiateResponse.outcomeParameterSet?.status == OutcomeParameterSet.Status.ONLINE_REQUEST) {
+                        val completeResponse = complete(
+                            authorizationResponse = "",
+                            initiateResponse = initiateResponse
+                        )
+                        _initiateResponse.emit(completeResponse)
+                        emitReceipt(completeResponse)
+                    } else {
+                        emitReceipt(initiateResponse)
+                    }
+                }
+            } catch (e: Exception) {
+                resetToReady()
+                Timber.w(e, "Failed to process payment request: ${e.cause}")
+            } finally {
+                switcloudClient.cleanup()
+            }
+        }
+    }
+
+    fun onPinVerdict(pinValue: String?) {
+        pinInput.trySend(pinValue)
     }
 }
