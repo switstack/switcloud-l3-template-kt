@@ -13,4 +13,10 @@
     <string name="build_firmware">Build / Firmware</string>
     <string name="build_version">Build: %s</string>
     <string name="firmware_version">Firmware: %s</string>
+    <string name="enter_your_pin">Enter your PIN</string>
+    <string name="payment_receipt">Payment receipt</string>
+    <string name="close">Close</string>
+    <string name="amount">Amount</string>
+    <string name="ac">AC</string>
+    <string name="signature">Signature</string>
 </resources>

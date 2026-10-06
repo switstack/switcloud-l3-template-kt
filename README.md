@@ -5,13 +5,20 @@ This app demonstrates how to perfom a single payment transaction using [Switclou
 
 The app uses a **POI_ID** and **POI_CONFIG_ID** (already registered in the selected switcloud environement) with a hardcoded Transaction Related Data to create a payment with Switcloud API SDK.
 
-Once authenticated against Switcloud, a payment transaction is initiated using these calls : 
+Once authenticated against Switcloud, for the basic usage, a payment transaction is initiated using these calls : 
 ```
 initialize()
 configure()
 initiate()
-complete()
+if( OPS.status == ONLINE_REQUEST) {
+    complete()
+}
+emitReceipt()
 ```
+
+It is also possible to get a deeper control to manage more precisely the steps, in this case you can use the advanced apis of **SwitcloudClt** :
+
+[Link to switcloud-clt-kt documentation](https://docs.switstack.io/api/switcloud/clt/switcloud-clt-kt/)
 
 ## Configuration
 
