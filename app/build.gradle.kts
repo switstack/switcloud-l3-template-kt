@@ -23,13 +23,13 @@ val localProperties = Properties().apply {
 android {
     namespace = "io.switstack.switcloud.switcloudl3"
     compileSdk {
-        version = release(36)
+        version = release(37)
     }
 
     defaultConfig {
         applicationId = "io.switstack.switcloud.switcloudl3.template"
         minSdk = 28
-        targetSdk = 36
+        targetSdk = 37
         versionName = appVersionName
         versionCode = generateVersionCode(appVersionName)
 
@@ -61,7 +61,6 @@ android {
     productFlavors {
         create("mokastd") {
             dimension = "l2"
-            missingDimensionStrategy("hal", "std")
         }
     }
 

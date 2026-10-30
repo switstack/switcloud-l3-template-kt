@@ -101,7 +101,7 @@ fun AboutScreen(navController: NavController) {
             AndroidVersion(Build.VERSION.SDK_INT, Build.VERSION.RELEASE),
             AndroidVersion.fromSdkInt(BuildConfig.MIN_SDK_VERSION),
             switcloudL3Version,
-            sysInfo.kernels.map {
+            sysInfo.kernels.filterNotNull().map {
                 Triple(
                     it.id,
                     it.version,

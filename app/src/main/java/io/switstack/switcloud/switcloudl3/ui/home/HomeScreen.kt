@@ -50,6 +50,7 @@ import io.switstack.switcloud.switcloudclt.data.UserInterfaceRequestData
 import io.switstack.switcloud.switcloudl3.R
 import io.switstack.switcloud.switcloudl3.Routes
 import io.switstack.switcloud.switcloudl3.data.UserInfo
+import kotlinx.coroutines.flow.update
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,7 +61,11 @@ fun HomeScreen(
     val isConnected by homeViewModel.isConnected.collectAsStateWithLifecycle()
     val isConnecting by homeViewModel.isConnecting.collectAsStateWithLifecycle()
 
+    val pinRequest by homeViewModel.pinRequest.collectAsStateWithLifecycle(null)
+
     val paymentProcessMessage by homeViewModel.paymentProcessMessage.collectAsStateWithLifecycle()
+
+    val receipt by homeViewModel.receipt.collectAsStateWithLifecycle()
 
     HomeScreenContent(
         navController,
@@ -68,7 +73,12 @@ fun HomeScreen(
         isConnected,
         isConnecting,
         homeViewModel::authenticate,
-        homeViewModel::startPayment
+        homeViewModel::startPaymentBasic,
+        homeViewModel::startPaymentAdvanced,
+        { pinValue -> homeViewModel.onPinVerdict(pinValue) },
+        pinRequest != null,
+        receipt,
+        { homeViewModel.receipt.update { mapOf() } }
     )
 }
 
@@ -80,7 +90,12 @@ fun HomeScreenContent(
     isConnected: Boolean,
     isConnecting: Boolean,
     authenticate: () -> Unit,
-    startPayment: () -> Unit
+    startPaymentBasic: () -> Unit,
+    startPaymentAdvanced: () -> Unit,
+    onDismissPinDialogClick: (String?) -> Unit,
+    isShowPinDialog: Boolean,
+    receipt: Map<Int, String>,
+    onDismissReceiptDialogClick: () -> Unit
 ) {
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -196,16 +211,29 @@ fun HomeScreenContent(
                                     Text("Authenticate")
                                 }
                                 Button(
-                                    onClick = { startPayment() },
+                                    onClick = { startPaymentBasic() },
                                     enabled = !isConnecting && isConnected
                                 ) {
-                                    Text("Start payment")
+                                    Text("Start payment basic")
+                                }
+                                Button(
+                                    onClick = { startPaymentAdvanced() },
+                                    enabled = !isConnecting && isConnected
+                                ) {
+                                    Text("Start payment advanced")
                                 }
                             }
                         }
                     }
                 }
             }
+        }
+
+        if (isShowPinDialog) {
+            PinEntryDialog(onDismissPinDialogClick)
+        }
+        if (receipt.isNotEmpty()) {
+            ReceiptDialog(receipt, onDismissReceiptDialogClick)
         }
     }
 }
@@ -224,6 +252,11 @@ fun HomeScreenPreview() {
         authenticate = {},
         isConnected = false,
         isConnecting = true,
-        startPayment = {}
+        startPaymentBasic = {},
+        startPaymentAdvanced = {},
+        onDismissPinDialogClick = {},
+        isShowPinDialog = false,
+        receipt = mapOf(),
+        onDismissReceiptDialogClick = {}
     )
 }
