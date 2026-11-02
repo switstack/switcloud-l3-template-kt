@@ -24,5 +24,15 @@ object Conf {
 
     val POI_ID: UUID = UUID.fromString(BuildConfig.POI_ID)
     val POI_CONFIG_ID: UUID = UUID.fromString(BuildConfig.POI_CONFIG_ID)
+    val readerParams = byteArrayOf(
+        // Supported interfaces
+        0xDF.toByte(), 0xA0.toByte(), 0x06, 0x01, 0x04,
+        // Trace (on)
+        0xDF.toByte(), 0xA0.toByte(), 0x18, 0x01, 0x01,
+        // Timeout interfaces detection (25 sec)
+        0xDF.toByte(), 0xA0.toByte(), 0x08, 0x01, 0x19,
+        // Polling timeout (30 sec)
+        0xDF.toByte(), 0xA0.toByte(), 0x07, 0x01, 0x1e
+    )
     const val TRD = "9F02060000000010009F03060000000000009A032006029C01005F2A020840"
 }

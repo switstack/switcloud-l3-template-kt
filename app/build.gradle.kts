@@ -23,24 +23,24 @@ val localProperties = Properties().apply {
 android {
     namespace = "io.switstack.switcloud.switcloudl3"
     compileSdk {
-        version = release(36)
+        version = release(37)
     }
 
     defaultConfig {
         applicationId = "io.switstack.switcloud.switcloudl3.template"
         minSdk = 28
-        targetSdk = 36
+        targetSdk = 37
         versionName = appVersionName
         versionCode = generateVersionCode(appVersionName)
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("int", "MIN_SDK_VERSION", "$minSdk")
-        buildConfigField("String", "SWITSTACK_CLIENT_ATTESTATION_SECRET", localProperties.getProperty("SWITSTACK_CLIENT_ATTESTATION_SECRET") ?: "")
-        buildConfigField("String", "SWITCLOUD_URL", localProperties.getProperty("LOCAL_SWITCLOUD_URL"))
-        buildConfigField("String", "SWITCLOUD_CLIENT_ID", localProperties.getProperty("LOCAL_SWITCLOUD_CLIENT_ID"))
-        buildConfigField("String", "SWITCLOUD_CLIENT_SECRET", localProperties.getProperty("LOCAL_SWITCLOUD_CLIENT_SECRET"))
-        buildConfigField("String", "POI_ID", localProperties.getProperty("LOCAL_POI_ID"))
-        buildConfigField("String", "POI_CONFIG_ID", localProperties.getProperty("LOCAL_POI_CONFIG_ID"))
+        buildConfigField("String", "SWITSTACK_CLIENT_ATTESTATION_SECRET", localProperties.getProperty("SWITSTACK_CLIENT_ATTESTATION_SECRET") ?: "\"\"")
+        buildConfigField("String", "SWITCLOUD_URL", localProperties.getProperty("LOCAL_SWITCLOUD_URL") ?: "\"\"")
+        buildConfigField("String", "SWITCLOUD_CLIENT_ID", localProperties.getProperty("LOCAL_SWITCLOUD_CLIENT_ID") ?: "\"\"")
+        buildConfigField("String", "SWITCLOUD_CLIENT_SECRET", localProperties.getProperty("LOCAL_SWITCLOUD_CLIENT_SECRET") ?: "\"\"")
+        buildConfigField("String", "POI_ID", localProperties.getProperty("LOCAL_POI_ID") ?: "\"\"")
+        buildConfigField("String", "POI_CONFIG_ID", localProperties.getProperty("LOCAL_POI_CONFIG_ID") ?: "\"\"")
     }
 
     buildTypes {
@@ -61,7 +61,6 @@ android {
     productFlavors {
         create("mokastd") {
             dimension = "l2"
-            missingDimensionStrategy("hal", "std")
         }
     }
 
